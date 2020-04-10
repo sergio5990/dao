@@ -7,6 +7,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+
 class DefaultSalaryDaoTest {
     final SalaryDao salaryDao = DefaultSalaryDao.getInstance();
 

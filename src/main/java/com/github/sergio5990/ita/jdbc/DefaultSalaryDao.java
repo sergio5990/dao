@@ -11,16 +11,6 @@ import java.util.ResourceBundle;
 
 public class DefaultSalaryDao implements SalaryDao {
     private static final Logger log = LoggerFactory.getLogger(DefaultSalaryDao.class);
-    private final String url;
-    private final String user;
-    private final String pass;
-
-    private DefaultSalaryDao() {
-        ResourceBundle resource = ResourceBundle.getBundle("db");
-        url = resource.getString("url");
-        user = resource.getString("user");
-        pass = resource.getString("password");
-    }
 
     private static class SingletonHolder {
         static final SalaryDao HOLDER_INSTANCE = new DefaultSalaryDao();
@@ -30,24 +20,22 @@ public class DefaultSalaryDao implements SalaryDao {
         return SingletonHolder.HOLDER_INSTANCE;
     }
 
-    private Connection getConnection() throws SQLException {
-//        final Connection connection = DriverManager.getConnection(url, user, pass);
-//        connection.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
-//        return connection;
-
+    private Connection getConnection() {
         return DataSource.getInstance().getConnection();
     }
 
     @Override
     public SalaryDto save(SalaryDto salary) {
-        try (Connection connection = getConnection();
-             PreparedStatement statement = connection.prepareStatement("insert into salary(dept, money) values (?,?)", Statement.RETURN_GENERATED_KEYS)) {
+        try (PreparedStatement statement = getConnection().prepareStatement(
+                "insert into salary(dept, money) values (?,?)", Statement.RETURN_GENERATED_KEYS)) {
             statement.setString(1, salary.getDept());
             statement.setInt(2, salary.getMoney());
             statement.executeUpdate();
-            final ResultSet generatedKeys = statement.getGeneratedKeys();
-            generatedKeys.next();
-            final long id = generatedKeys.getLong(1);
+            final long id;
+            try (ResultSet generatedKeys = statement.getGeneratedKeys()) {
+                generatedKeys.next();
+                id = generatedKeys.getLong(1);
+            }
             final SalaryDto salaryDto = new SalaryDto(id, salary.getMoney(), salary.getDept());
             log.info("salary saved: {}", salaryDto);
             return salaryDto;
@@ -67,25 +55,20 @@ public class DefaultSalaryDao implements SalaryDao {
                 statement.setString(1, salary.getDept());
                 statement.setInt(2, salary.getMoney());
                 statement.executeUpdate();
-                final ResultSet generatedKeys = statement.getGeneratedKeys();
-                generatedKeys.next();
-                final long id = generatedKeys.getLong(1);
+                final long id;
+                try (ResultSet generatedKeys = statement.getGeneratedKeys()) {
+                    generatedKeys.next();
+                    id = generatedKeys.getLong(1);
+                }
                 final SalaryDto salaryDto = new SalaryDto(id, salary.getMoney(), salary.getDept());
-                log.trace("salary saved: {}", salaryDto);
-
-                log.debug("salary saved: {}", salaryDto);
-
                 log.info("salary saved: {} param2:{} param3: {}", salaryDto, 1, 2);
-                log.warn("salary saved: {}", salaryDto);
-                log.error("salary saved: {}", salaryDto);
-
                 connection.commit();
                 return salaryDto;
             }
         } catch (SQLException e) {
             try {
                 connection.rollback();
-                log.error("salary saved: {}", salary, e );
+                log.error("salary saved: {}", salary, e);
             } catch (SQLException ex) {
                 throw new RuntimeException(e);
             }
@@ -254,7 +237,7 @@ public class DefaultSalaryDao implements SalaryDao {
             try (PreparedStatement statement = connection.prepareStatement("select * from salary where dept = ?")) {
                 statement.setString(1, dept);
                 final ResultSet resultSet = statement.executeQuery();
-                final ArrayList<SalaryDto> result = new ArrayList<>();
+                final List<SalaryDto> result = new ArrayList<>();
                 while (resultSet.next()) {
                     final long id = resultSet.getLong("id");
                     final String resultDept = resultSet.getString("dept");
